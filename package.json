@@ -11,5 +11,13 @@
   "license": "ISC",
   "devDependencies": {
     "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.1",
+    "aws-sdk": "^2.1692.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "redis": "^4.7.0",
+    "simple-git": "^3.27.0"
   }
 }
