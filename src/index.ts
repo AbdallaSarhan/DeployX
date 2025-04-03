@@ -4,6 +4,7 @@ import simpleGit from "simple-git";
 import { generateId } from "./utils";
 import path from "path";
 import { getAllFiles } from "./file";
+import { uploadFileToS3 } from "./aws";
 
 const app = express();
 app.use(cors());
@@ -14,7 +15,12 @@ app.post("/deploy", async (req, res) => {
     const id = generateId();
     await simpleGit().clone(repoUrl, path.join(__dirname, `./output/${id}`));
     const files = getAllFiles(path.join(__dirname, `./output/${id}`));
-    // TODO: Upload every file to s3
+    // Upload every file to s3
+    files.forEach(async (file) => {
+        await uploadFileToS3(file.slice(__dirname.length + 1), file);
+    }
+    );
+    
     res.json({
         message: "Deployment started",
         repoUrl: repoUrl,
