@@ -5,6 +5,9 @@ import { generateId } from "./utils";
 import path from "path";
 import { getAllFiles } from "./file";
 import { uploadFileToS3 } from "./aws";
+import { createClient } from "redis";
+const publisher = createClient()
+publisher.connect().catch(console.error);
 
 const app = express();
 app.use(cors());
@@ -20,7 +23,10 @@ app.post("/deploy", async (req, res) => {
         await uploadFileToS3(file.slice(__dirname.length + 1), file);
     }
     );
-    
+    // Push the id to the redis queue
+    // This will be used by the worker nodes to build the project and process the deployment
+    await publisher.lPush("build-queue", id);
+
     res.json({
         message: "Deployment started",
         repoUrl: repoUrl,
