@@ -9,7 +9,7 @@ const s3 = new S3({
 
 const app = express();
 
-app.get("/*", async (req, res) => {
+app.get("/*splat", async (req, res) => {
     // id.hostname.com
     const host = req.hostname;
 
