@@ -1,43 +1,93 @@
-import { exec } from "child_process";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { exec } from "child_process";
+
+function findProjectRoot(basePath: string): string | null {
+  const queue: string[] = [basePath];
+
+  while (queue.length > 0) {
+    const current = queue.pop()!;
+    const files = fs.readdirSync(current);
+
+    if (files.includes("package.json")) {
+      return current;
+    }
+
+    // Add subdirectories to the queue
+    for (const file of files) {
+      const fullPath = path.join(current, file);
+      if (fs.statSync(fullPath).isDirectory()) {
+        queue.push(fullPath);
+      }
+    }
+  }
+  return null;
+}
 
 export async function buildProject(id: string) {
-    const projectPath = path.join(__dirname, `output/${id}`);
-    const dockerfilePath = path.join(projectPath, "Dockerfile");
+  const basePath = path.join(__dirname, `input/${id}`);
+  const projectPath = findProjectRoot(basePath);
 
-    // Create a Dockerfile dynamically
-    const dockerfileContent = `
-    FROM node:18-alpine
-    WORKDIR /app
-    COPY . .
-    RUN npm install && npm run build
-    CMD ["echo", "Build complete"]
-    `;
+  if (!projectPath) {
+    throw new Error(
+      "Could not find a package.json inside the project directory."
+    );
+  }
 
-    fs.writeFileSync(dockerfilePath, dockerfileContent);
+  // Write Dockerfile in the detected project root
+  const dockerfilePath = path.join(projectPath, "Dockerfile");
+  const dockerfileContent = `
+        FROM node:18-alpine
 
-    // Build and run the container
-    const buildCmd = `docker build -t project-${id} ${projectPath}`;
-    const runCmd = `docker run --rm project-${id}`;
+        # Install serve
+        RUN npm install -g serve
 
-    try {
-        await new Promise<void>((resolve, reject) => {
-            const child = exec(`${buildCmd} && ${runCmd}`);
+        # Set working directory
+        WORKDIR /app
 
-            child.stdout?.on("data", (data) => console.log("stdout: " + data));
-            child.stderr?.on("data", (data) => console.log("stderr: " + data));
+        # Copy all project files
+        COPY . .
 
-            child.on("close", (code) => {
-                if (code === 0) {
-                    resolve();
-                } else {
-                    reject(new Error(`Build failed with exit code ${code}`));
-                }
-            });
-        });
-        return "Build completed successfully";
-    } catch (error) {
-        throw error;
-    }
+        # Install deps and build the app
+        RUN npm install && npm run build
+
+        # Serve the build on port 3000
+        EXPOSE 3000
+        CMD ["serve", "-s", "build", "-l", "3000"]
+        `;
+  fs.writeFileSync(dockerfilePath, dockerfileContent);
+
+  fs.writeFileSync(
+    path.join(projectPath, ".dockerignore"),
+    `
+        node_modules
+        dist
+        Dockerfile
+        `
+  );
+
+  // Build the Docker image and run it
+  const buildCmd = `docker build -t project-${id} ${projectPath}`;
+  const runCmd = `docker run --rm project-${id}`;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = exec(`${buildCmd} && ${runCmd}`);
+
+      child.stdout?.on("data", (data) => console.log("stdout: " + data));
+      child.stderr?.on("data", (data) => console.log("stderr: " + data));
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Build failed with exit code ${code}`));
+        }
+      });
+    });
+
+    return "Build completed successfully";
+  } catch (error) {
+    throw error;
+  }
 }
