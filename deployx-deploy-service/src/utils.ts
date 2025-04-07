@@ -12,7 +12,6 @@ function findProjectRoot(basePath: string): string | null {
     if (files.includes("package.json")) {
       return current;
     }
-
     // Add subdirectories to the queue
     for (const file of files) {
       const fullPath = path.join(current, file);
@@ -33,46 +32,45 @@ export async function buildProject(id: string) {
       "Could not find a package.json inside the project directory."
     );
   }
-
   // Write Dockerfile in the detected project root
   const dockerfilePath = path.join(projectPath, "Dockerfile");
   const dockerfileContent = `
-        FROM node:18-alpine
+    FROM node:18-alpine
 
-        # Install serve
-        RUN npm install -g serve
+    # Install serve
+    RUN npm install -g serve
 
-        # Set working directory
-        WORKDIR /app
+    # Set working directory
+    WORKDIR /app
 
-        # Copy all project files
-        COPY . .
+    # Copy all project files
+    COPY . .
 
-        # Install deps and build the app
-        RUN npm install && npm run build
+    # Install deps and build the app
+    RUN npm install && npm run build
 
-        # Serve the build on port 3000
-        EXPOSE 3000
-        CMD ["serve", "-s", "build", "-l", "3000"]
-        `;
+    # Serve the build on port 3000
+    EXPOSE 3000
+    CMD ["serve", "-s", "build", "-l", "3000"]
+  `;
   fs.writeFileSync(dockerfilePath, dockerfileContent);
 
   fs.writeFileSync(
     path.join(projectPath, ".dockerignore"),
     `
-        node_modules
-        dist
-        Dockerfile
-        `
+    node_modules
+    dist
+    Dockerfile
+    `
   );
-
-  // Build the Docker image and run it
-  const buildCmd = `docker build -t project-${id} ${projectPath}`;
-  const runCmd = `docker run --rm project-${id}`;
+  // Build the Docker image
+  // Use docker buildx to build the image for linux/amd64
+  // This is necessary because Faregate is running on a linux/amd64 machine
+  const buildCmd = `docker buildx build --platform linux/amd64 -t project-${id} ${projectPath} --load`;
 
   try {
     await new Promise<void>((resolve, reject) => {
-      const child = exec(`${buildCmd} && ${runCmd}`);
+      const child = exec(buildCmd);
 
       child.stdout?.on("data", (data) => console.log("stdout: " + data));
       child.stderr?.on("data", (data) => console.log("stderr: " + data));
