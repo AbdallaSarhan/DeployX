@@ -1,4 +1,3 @@
-
 # DeployX
 
 DeployX is a Vercel-like platform that enables seamless deployment of frontend apps directly from GitHub. It uses a microservice-based architecture to support scalable, asynchronous, and secure deployments using AWS services.
@@ -6,6 +5,8 @@ DeployX is a Vercel-like platform that enables seamless deployment of frontend a
 ---
 
 ## System Architecture
+
+![DeployX-system-design-picture](https://github.com/user-attachments/assets/f99f017f-9bcb-4e0b-a7f8-f97ef9227a21)
 
 ### Services
 
